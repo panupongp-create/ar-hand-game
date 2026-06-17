@@ -3,63 +3,73 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR Math Motion Game 👌🧠</title>
+  <title>AR Math Room Battle 🧠⚔️</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4 antialiased">
+<body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4 antialiased selection:bg-teal-500">
 
   <header class="text-center mb-2">
-    <h1 class="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm">
-      AR Math Motion Game 🧠🔢
+    <h1 class="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm">
+      AR Math Room Battle 🧠⚔️
     </h1>
-    <p id="status" class="text-xs text-slate-400 mt-1 h-5 animate-pulse">
-      กำลังดาวน์โหลด AI และตรวจสอบกล้องเว็บแคม...
-    </p>
+    <div class="flex justify-center gap-2 mt-1">
+      <span class="bg-slate-800 text-teal-400 text-xs px-2.5 py-0.5 rounded-full font-mono border border-slate-700">
+        ROOM ID: <span id="room-id-display">Generating...</span>
+      </span>
+    </div>
+    <p id="status" class="text-[11px] text-slate-400 mt-1 h-4 animate-pulse">กำลังติดตั้งระบบ AI นิ้วมือสัมผัส...</p>
   </header>
 
-  <section class="grid grid-cols-2 gap-4 w-full max-w-[640px] bg-slate-800/80 backdrop-blur border border-slate-700/50 p-3 rounded-2xl mb-3 shadow-xl text-center text-xl font-bold">
+  <section class="grid grid-cols-2 gap-4 w-full max-w-[640px] bg-slate-800/90 backdrop-blur border border-slate-700/50 p-3 rounded-2xl mb-3 text-center text-xl font-bold">
     <div class="bg-slate-900/50 p-2 rounded-xl border border-slate-800">
       <span class="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">⏱️ เวลาที่เหลือ</span>
-      <span id="timer" class="text-2xl text-rose-500 font-mono tracking-tight">60</span> <span class="text-xs text-slate-400 font-normal">วินาที</span>
+      <span id="timer" class="text-2xl text-rose-500 font-mono">60</span> <span class="text-xs text-slate-400 font-normal">วินาที</span>
     </div>
     <div class="bg-slate-900/50 p-2 rounded-xl border border-slate-800">
       <span class="block text-[10px] font-medium text-slate-400 uppercase tracking-wider mb-0.5">⭐ คะแนนปัจจุบัน</span>
-      <span id="current-score" class="text-2xl text-amber-400 font-mono tracking-tight">0</span> <span class="text-xs text-slate-400 font-normal">แต้ม</span>
+      <span id="current-score" class="text-2xl text-amber-400 font-mono">0</span> <span class="text-xs text-slate-400 font-normal">แต้ม</span>
     </div>
   </section>
 
-  <div id="question-box" class="text-2xl md:text-3xl font-black bg-slate-800 px-6 py-2 rounded-xl border-2 border-dashed border-teal-400/70 shadow-lg mb-4 w-full max-w-[300px] text-center tracking-wide">
-    🤔 รอเริ่มเกม...
+  <div id="question-box" class="text-2xl md:text-3xl font-black bg-slate-800 px-6 py-2 rounded-xl border-2 border-dashed border-teal-400/70 shadow-lg mb-4 w-full max-w-[280px] text-center tracking-wide">
+    🤔 รอเริ่มห้อง...
   </div>
   
   <main id="video-container" class="relative w-full max-w-[640px] aspect-[4/3] bg-black border-4 border-slate-700 rounded-3xl overflow-hidden shadow-2xl">
     <video id="webcam" class="absolute inset-0 w-full h-full object-cover scale-x-[-1]" autoplay playsinline muted></video>
     <canvas id="gameCanvas" width="640" height="480" class="absolute inset-0 w-full h-full object-cover scale-x-[-1] z-10"></canvas>
 
-    <div id="overlay-screen" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center z-20 p-4 text-center transition-all duration-300">
-      <div id="modal-box" class="max-w-md w-full bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-2xl overflow-y-auto max-h-[460px] flex flex-col items-center">
+    <div id="overlay-screen" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center z-20 p-4 overflow-y-auto">
+      <div id="modal-box" class="max-w-md w-full bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-2xl flex flex-col items-center max-h-[455px] overflow-y-auto">
         
-        <h2 id="overlay-title" class="text-xl font-black text-teal-400 mb-1">ยินดีต้อนรับสู่เกมคณิตศาสตร์ AR!</h2>
-        <div id="overlay-desc" class="text-slate-300 mb-4 text-xs leading-relaxed max-w-sm">
-          เล็งพอยน์เตอร์ไปยังวงกลมคำตอบ แล้วทำการ <span class="text-amber-400 font-semibold">"จีบนิ้ว 👌"</span> เพื่อส่งคำตอบ!
-        </div>
+        <h2 id="overlay-title" class="text-xl font-black text-teal-400 mb-1">สร้างห้องเล่นเกมคณิตศาสตร์ AR!</h2>
+        <p id="overlay-desc" class="text-slate-400 text-[11px] mb-3 text-center max-w-xs">
+          กติกาใหม่: กางมือออก <span class="text-emerald-400 font-bold">เล็งพอยน์เตอร์ค้างไว้บนช้อยส์</span> รอแถบวงกลมสีเขียวโหลดเต็มวงเพื่อเลือกคำตอบ!
+        </p>
         
-        <div id="qrcode-area" class="w-full border-t border-b border-slate-800/80 py-3 mb-4 flex flex-col items-center bg-slate-950/40 rounded-xl">
-          <p class="text-[11px] font-bold text-slate-400 mb-2">📢 ให้เพื่อนสแกน QR Code นี้เพื่อเข้าห้องมาเล่นแข่งกัน!</p>
-          <div id="qrcode" class="p-2 bg-white rounded-xl shadow-lg"></div>
-          <p class="text-[9px] text-slate-500 mt-1.5">คะแนนทั้งหมดจะบันทึกรวมลงใน Google Sheets ส่วนกลาง</p>
+        <div id="qrcode-area" class="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-3 mb-4 flex flex-col items-center">
+          <p class="text-[11px] font-bold text-amber-400 mb-2 text-center">📲 สแกน QR Code นี้เพื่อเข้ามาร่วมเล่นในห้องเดียวกัน!</p>
+          <div id="qrcode" class="p-2 bg-white rounded-xl shadow-md"></div>
+          <p class="text-[9px] text-slate-500 mt-1">ผู้เล่นที่ใช้ลิงก์/QR นี้ จะถูกสรุปคะแนนรวมกันในหน้า Leaderboard</p>
         </div>
 
-        <div id="input-group" class="w-full mb-3">
-          <label class="block text-[10px] text-left font-bold text-slate-400 uppercase tracking-widest mb-1">ชื่อผู้เล่นของคุณ</label>
-          <input type="text" id="name-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-center text-base font-bold focus:outline-none focus:border-teal-400 text-teal-300 placeholder-slate-700 transition-all" placeholder="พิมพ์ชื่อตรงนี้..." maxlength="15">
+        <div id="leaderboard-area" class="w-full hidden mb-4 bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-left">
+          <h3 class="text-xs font-bold text-teal-400 uppercase tracking-wider border-b border-slate-800 pb-1 mb-2 text-center">🏆 ตารางอันดับคะแนนในห้องนี้</h3>
+          <ol id="leaderboard-list" class="text-xs space-y-1 max-h-[120px] overflow-y-auto pr-1">
+            <li class="text-slate-500 text-center py-1">กำลังดึงคะแนนของเพื่อนๆ...</li>
+          </ol>
         </div>
 
-        <button id="start-btn" onclick="startGame()" class="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-extrabold text-base px-6 py-2.5 rounded-xl shadow-lg shadow-teal-500/20 active:scale-[0.98] transition-all">
-          เริ่มเล่นเกมการแข่งขัน 🎮
+        <div id="input-group" class="w-full mb-4">
+          <label class="block text-[10px] text-left font-bold text-slate-400 uppercase tracking-widest mb-1">ป้อนชื่อผู้เล่น</label>
+          <input type="text" id="name-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-center text-sm font-bold focus:outline-none focus:border-teal-400 text-teal-300 placeholder-slate-700 transition-all" placeholder="พิมพ์ชื่อเล่นของคุณ..." maxlength="12">
+        </div>
+
+        <button id="start-btn" onclick="startGame()" class="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-extrabold text-sm px-6 py-2.5 rounded-xl transition-all">
+          เริ่มเปิดศึกคำนวณ ⚔️
         </button>
 
       </div>
@@ -67,7 +77,8 @@
   </main>
 
   <script>
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw5fograqjsSlD69_y0JTHzkpIf961Nad9Htv-p-TKS_BfjKi1eMAOkgmWBC9mBlx3c/exec";
+    // 🛑 ป้อน URL ของ Google Apps Script Web App ของคุณที่นี่
+    const GAS_WEB_APP_URL = "YOUR_NEW_GAS_WEB_APP_URL";
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
@@ -83,7 +94,8 @@
     const inputGroup = document.getElementById('input-group');
     const nameInput = document.getElementById('name-input');
     const startBtn = document.getElementById('start-btn');
-    const qrcodeArea = document.getElementById('qrcode-area');
+    const leaderboardArea = document.getElementById('leaderboard-area');
+    const leaderboardList = document.getElementById('leaderboard-list');
     
     let score = 0;
     let timeLeft = 60;
@@ -91,22 +103,41 @@
     let isSaving = false;
     let countdownInterval;
     let playerName = "Anonymous";
-    let wasPinching = false; 
 
+    // ระบบจัดสรรรหัสห้อง (Multiplayer Room Setup)
+    let roomId = "";
     let currentQuestion = { num1: 0, num2: 0, op: '+', answer: 0 };
     let targets = [];
 
-    // สร้าง QR Code ทันทีที่เปิดหน้าเว็บขึ้นมาครั้งแรก (หยิบลิงก์เว็บปัจจุบันมาเจน)
-    window.addEventListener('DOMContentLoaded', () => {
+    // กำหนดตั้งค่าตัวแปรสำหรับตรวจเช็กการเล็งค้าง (Hover Ring Config)
+    let activeHoverIndex = null; 
+    let hoverStartTime = null;
+    const HOVER_DURATION = 1500; // ใช้เวลาเล็งค้าง 1.5 วินาที เพื่อเลือกคำตอบ
+
+    // จัดการระบบ Room ID จาก URL เพื่อแชร์ห้อง
+    function setupRoom() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('room')) {
+        roomId = urlParams.get('room');
+      } else {
+        // หากเปิดขึ้นมาเป็นคนแรก จะทำการสุ่มรหัสห้องใหม่ 6 หลัก
+        roomId = Math.floor(100000 + Math.random() * 900000).toString();
+        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomId;
+        window.history.pushState({path:newUrl}, '', newUrl);
+      }
+      document.getElementById('room-id-display').innerText = roomId;
+
+      // เจน QR Code ประจำห้องนี้
       new QRCode(document.getElementById("qrcode"), {
         text: window.location.href,
-        width: 110,
-        height: 110,
+        width: 100,
+        height: 100,
         colorDark : "#0f172a",
         colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.H
+        correctLevel : QRCode.CorrectLevel.M
       });
-    });
+    }
+    window.addEventListener('DOMContentLoaded', setupRoom);
 
     function generateQuestion() {
       const ops = ['+', '-', '×'];
@@ -123,35 +154,37 @@
         answer = num1 - num2;
       } else {
         num1 = Math.floor(Math.random() * 9) + 2;
-        num2 = Math.floor(Math.random() * 9) + 1;
+        num2 = Math.floor(Math.random() * 8) + 1;
         answer = num1 * num2;
       }
 
       currentQuestion = { num1, num2, op, answer };
       questionBox.innerText = `${num1} ${op} ${num2} = ?`;
 
-      let wrong1 = answer + (Math.floor(Math.random() * 4) + 1);
-      let wrong2 = answer - (Math.floor(Math.random() * 4) + 1);
-      if (wrong2 <= 0 || wrong2 === answer) wrong2 = answer + 6;
-      if (wrong1 === wrong2) wrong1 = answer + 10;
+      let wrong1 = answer + (Math.floor(Math.random() * 3) + 1);
+      let wrong2 = answer - (Math.floor(Math.random() * 3) + 1);
+      if (wrong2 <= 0 || wrong2 === answer) wrong2 = answer + 5;
+      if (wrong1 === wrong2) wrong1 = answer + 8;
 
       let choices = [answer, wrong1, wrong2];
       choices.sort(() => Math.random() - 0.5);
 
       const positionsX = [110, 320, 530];
-      const colors = ['#06b6d4', '#10b981', '#f43f5e']; 
+      const colors = ['#06b6d4', '#8b5cf6', '#f43f5e']; // ฟ้า, ม่วง, แดง
 
       targets = [];
       for(let i=0; i<3; i++) {
         targets.push({
           x: positionsX[i],
-          y: 250,
-          radius: 50,
+          y: 240,
+          radius: 48,
           value: choices[i],
           isCorrect: (choices[i] === answer),
           color: colors[i]
         });
       }
+      activeHoverIndex = null;
+      hoverStartTime = null;
     }
 
     function drawGame(landmarks) {
@@ -159,92 +192,132 @@
       
       if (!gameActive) return;
 
-      // 1. วาดช้อยส์คำตอบทั้ง 3 วง
-      targets.forEach(tgt => {
+      const now = Date.now();
+      let pointerX = null;
+      let pointerY = null;
+
+      // 1. ตรวจจับและประมวลผลวาดโครงกระดูกมือ 5 นิ้วแบบละเอียด
+      if (landmarks) {
+        pointerX = landmarks[8].x * canvas.width; // ใช้ปลายนิ้วชี้ทำหน้าที่เป็นเป้าเล็งหลัก
+        pointerY = landmarks[8].y * canvas.height;
+
+        // วาดจุดเชื่อมโยง (Joints) และเส้นกระดูกครบทั้ง 5 นิ้ว
+        ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
+        ctx.lineWidth = 3;
+        
+        // รายชื่อเส้นเชื่อมจุดต่อของแต่ละนิ้ว (ตามมาตรฐาน MediaPipe)
+        const fingerConnections = [
+          [0,1,2,3,4],       // นิ้วโป้ง
+          [0,5,6,7,8],       // นิ้วชี้
+          [9,10,11,12],      // นิ้วกลาง
+          [13,14,15,16],     // นิ้วนาง
+          [0,17,18,19,20],   // นิ้วก้อย
+          [5,9,13,17]        // อุ้งมือ
+        ];
+
+        fingerConnections.forEach(chain => {
+          ctx.beginPath();
+          for(let i=0; i<chain.length - 1; i++) {
+            const p1 = landmarks[chain[i]];
+            const p2 = landmarks[chain[i+1]];
+            ctx.moveTo(p1.x * canvas.width, p1.y * canvas.height);
+            ctx.lineTo(p2.x * canvas.width, p2.y * canvas.height);
+          }
+          ctx.stroke();
+        });
+
+        // วาดจุดข้อต่อทรงกลมสะท้อนแสงทุกๆ ข้อต่อมือ
+        landmarks.forEach(pt => {
+          ctx.beginPath();
+          ctx.arc(pt.x * canvas.width, pt.y * canvas.height, 4, 0, 2 * Math.PI);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+        });
+      }
+
+      // 2. วาดช้อยส์ตัวเลือกคำตอบและประมวลผลวงแหวนโหลดค้าง (Hover Ring Loading)
+      let currentIntersectIndex = null;
+
+      for (let i = 0; i < targets.length; i++) {
+        const tgt = targets[i];
+        
+        // เช็กระยะชนว่าเป้าเล็งปลายนิ้วอยู่ในวงกลมช้อยส์หรือไม่
+        if (pointerX !== null && pointerY !== null) {
+          const dist = Math.hypot(pointerX - tgt.x, pointerY - tgt.y);
+          if (dist < tgt.radius) {
+            currentIntersectIndex = i;
+          }
+        }
+
+        // วาดฐานวงกลมช้อยส์คำตอบ
         ctx.beginPath();
         ctx.arc(tgt.x, tgt.y, tgt.radius, 0, 2 * Math.PI);
         ctx.fillStyle = tgt.color;
         ctx.globalAlpha = 0.85;
         ctx.fill();
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
         ctx.closePath();
 
-        ctx.save();
-        ctx.translate(tgt.x, tgt.y);
-        ctx.scale(-1, 1); 
-        ctx.fillStyle = '#0f172a'; 
-        ctx.font = 'bold 30px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(tgt.value, 0, 0); 
-        ctx.restore();
-      });
+        // ตรวจเช็กตรรกะการค้างนิ้วเพื่อโหลดขอบวงกลมสีเขียว
+        if (currentIntersectIndex === i) {
+          if (activeHoverIndex !== i) {
+            activeHoverIndex = i;
+            hoverStartTime = now;
+          }
 
-      // 2. ตรวจจับตำแหน่งมือและการจีบ
-      if (landmarks) {
-        const thumbTip = landmarks[4];  
-        const indexTip = landmarks[8];  
+          const elapsed = now - hoverStartTime;
+          const progress = Math.min(elapsed / HOVER_DURATION, 1);
 
-        const tX = thumbTip.x * canvas.width;
-        const tY = thumbTip.y * canvas.height;
-        const iX = indexTip.x * canvas.width;
-        const iY = indexTip.y * canvas.height;
+          // วาดวงแหวนโหลดสีเขียวครอบรอบนอกช้อยส์ตัวเลือก
+          ctx.beginPath();
+          ctx.arc(tgt.x, tgt.y, tgt.radius + 8, -Math.PI / 2, (-Math.PI / 2) + (Math.PI * 2 * progress));
+          ctx.lineWidth = 6;
+          ctx.strokeStyle = '#10b981'; // สีเขียวมินท์โหลดดิ้ง
+          ctx.stroke();
 
-        const pointerX = (tX + iX) / 2;
-        const pointerY = (tY + iY) / 2;
-
-        const distance = Math.hypot(tX - iX, tY - iY);
-        const isPinching = distance < 35; 
-
-        ctx.beginPath();
-        ctx.moveTo(tX, tY);
-        ctx.lineTo(iX, iY);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = isPinching ? '#f59e0b' : 'rgba(255, 255, 255, 0.4)';
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.arc(pointerX, pointerY, isPinching ? 8 : 12, 0, 2 * Math.PI);
-        ctx.fillStyle = isPinching ? '#f59e0b' : '#2dd4bf'; 
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#ffffff';
-        ctx.stroke();
-        ctx.fill();
-        ctx.closePath();
-
-        ctx.save();
-        ctx.translate(pointerX, pointerY - 24);
-        ctx.scale(-1, 1);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 13px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(isPinching ? "👌 จีบเลือก!" : "🎯 เล็งแล้วจีบ", 0, 0);
-        ctx.restore();
-
-        if (isPinching && !wasPinching) {
-          for (let i = 0; i < targets.length; i++) {
-            const tgt = targets[i];
-            const distFromTarget = Math.hypot(pointerX - tgt.x, pointerY - tgt.y);
-            
-            if (distFromTarget < tgt.radius) {
-              if (tgt.isCorrect) {
-                score += 10;
-                statusDiv.className = "text-xs text-emerald-400 font-bold mt-1 h-5";
-                statusDiv.innerText = "ถูกต้อง! 🟢 +10 แต้ม";
-              } else {
-                score = Math.max(0, score - 5);
-                statusDiv.className = "text-xs text-rose-400 font-bold mt-1 h-5";
-                statusDiv.innerText = "คำตอบผิด! 🔴 หัก 5 แต้ม";
-              }
-              scoreDiv.innerText = score;
-              generateQuestion(); 
-              break;
+          // เงื่อนไขเมื่อโหลดวงกลมจนเต็มครบ 100%
+          if (progress >= 1) {
+            if (tgt.isCorrect) {
+              score += 10;
+              statusDiv.className = "text-xs text-emerald-400 font-bold mt-1 h-4";
+              statusDiv.innerText = "ถูกต้องยอดเยี่ยม! 🟢 +10 แต้ม";
+            } else {
+              score = Math.max(0, score - 5);
+              statusDiv.className = "text-xs text-rose-400 font-bold mt-1 h-4";
+              statusDiv.innerText = "คำตอบผิดพลาด! 🔴 หัก 5 แต้ม";
             }
+            scoreDiv.innerText = score;
+            generateQuestion(); // ขึ้นข้อใหม่ทันที
+            return;
           }
         }
-        wasPinching = isPinching; 
+
+        // เขียนตัวเลขคำตอบตรงกลางช่อง (สะท้อนค่าอักษรกลับไม่ให้หัวกลับ)
+        ctx.save();
+        ctx.translate(tgt.x, tgt.y);
+        ctx.scale(-1, 1);
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 28px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tgt.value, 0, 0);
+        ctx.restore();
+      }
+
+      // รีเซ็ตตัวนับการค้างหากเลื่อนนิ้วหลุดออกจากเป้า
+      if (currentIntersectIndex === null) {
+        activeHoverIndex = null;
+        hoverStartTime = null;
+      }
+
+      // วาดเป้าพอยน์เตอร์กลมเล็กที่ปลายนิ้วชี้เพื่อช่วยเล็งช่อง
+      if (pointerX !== null && pointerY !== null) {
+        ctx.beginPath();
+        ctx.arc(pointerX, pointerY, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = activeHoverIndex !== null ? '#10b981' : '#ffffff';
+        ctx.fill();
       }
     }
 
@@ -255,12 +328,11 @@
       score = 0;
       timeLeft = 60;
       isSaving = false;
-      wasPinching = false;
       
       scoreDiv.innerText = score;
       timerDiv.innerText = timeLeft;
-      statusDiv.className = "text-xs text-slate-400 mt-1 h-5";
-      statusDiv.innerText = "🕹️ เริ่มคำนวณได้เลย!";
+      statusDiv.className = "text-xs text-slate-400 mt-1 h-4";
+      statusDiv.innerText = "⚔️ สมรภูมิเริ่มแล้ว ลุยเลย!";
       
       overlayScreen.classList.add('opacity-0', 'pointer-events-none');
       gameActive = true;
@@ -280,37 +352,66 @@
       clearInterval(countdownInterval);
       questionBox.innerText = "🏁 หมดเวลา!";
       
-      overlayTitle.innerText = "🏁 การแข่งขันสิ้นสุดลงแล้ว!";
-      overlayDesc.innerHTML = `ผู้เล่น: <span class="text-teal-400 font-bold">${playerName}</span><br>คะแนนที่ทำได้: <span class="text-2xl text-amber-400 font-black block my-1">${score} คะแนน</span>`;
+      overlayTitle.innerText = "🏁 การแข่งขันจบลงแล้ว!";
+      overlayDesc.innerHTML = `คะแนนของคุณผู้เล่น <b>${playerName}</b>: <span class="text-xl text-amber-400 font-black">${score} แต้ม</span>`;
       
-      inputGroup.classList.remove('hidden'); // แสดงช่องกรอกชื่อกลับมาเผื่อเปลี่ยนคนเล่น
-      startBtn.innerText = "เล่นใหม่อีกรอบ 🔄";
+      inputGroup.classList.add('hidden'); // ซ่อนช่องพิมพ์ชื่อ
+      leaderboardArea.classList.remove('hidden'); // ✨ เปิดกล่องโชว์ตารางอันดับรวมของห้อง
+      startBtn.innerText = "ร่วมแข่งใหม่อีกรอบ 🔄";
       overlayScreen.classList.remove('opacity-0', 'pointer-events-none');
 
       if (!isSaving) {
         isSaving = true;
-        statusDiv.className = "text-xs text-cyan-400 mt-1 h-5";
-        statusDiv.innerText = "🌐 กำลังบันทึกคะแนนเข้าสู่ตาราง Sheets กลาง...";
+        statusDiv.innerText = "📡 กำลังส่งคะแนนไปยัง Leaderboard ประจำห้อง...";
         
+        // 1. ส่งคะแนนแฝงหลังบ้านผ่าน POST พร้อมส่ง RoomID กำกับไปด้วย
         fetch(GAS_WEB_APP_URL, {
           method: "POST",
           mode: "no-cors",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ player: playerName, score: score })
+          body: JSON.stringify({ roomId: roomId, player: playerName, score: score })
         })
         .then(() => {
-          statusDiv.className = "text-xs text-emerald-400 font-bold mt-1 h-5";
-          statusDiv.innerText = "✅ บันทึกคะแนนและอัปเดตตารางคะแนนเรียบร้อย!";
+          statusDiv.innerText = "🔄 กำลังอัปเดตตารางคะแนนรวมของเพื่อนๆ...";
+          // หน่วงเวลา 1 วินาที เพื่อให้ข้อมูลแถวใหม่บันทึกลง Sheet เสร็จเรียบร้อย
+          setTimeout(fetchLeaderboard, 1000);
         })
-        .catch(err => {
-          statusDiv.className = "text-xs text-rose-400 mt-1 h-5";
-          statusDiv.innerText = "❌ บันทึกคะแนนล้มเหลว";
+        .catch(() => {
+          statusDiv.innerText = "❌ เกิดข้อผิดพลาดทางเครือข่าย";
           isSaving = false;
         });
       }
     }
 
+    // ✨ ฟังก์ชัน GET ดึงตารางคะแนนของทุกคนที่เล่นในห้องเดียวกันมาโชว์เมื่อเกมเสร็จ
+    function fetchLeaderboard() {
+      fetch(`${GAS_WEB_APP_URL}?roomId=${roomId}`)
+      .then(res => res.json())
+      .then(data => {
+        leaderboardList.innerHTML = "";
+        if (data.length === 0) {
+          leaderboardList.innerHTML = `<li class="text-slate-500 text-center py-1">ยังไม่มีบันทึกคะแนนในห้องนี้</li>`;
+          return;
+        }
+        data.forEach((entry, idx) => {
+          const medal = idx === 0 ? "🥇 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : `${idx + 1}. `;
+          const li = document.createElement('li');
+          li.className = "flex justify-between items-center bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-800/80 mb-1";
+          li.innerHTML = `<span class="font-bold text-slate-200">${medal}${entry.player}</span>
+                          <span class="font-mono text-amber-400 font-bold">${entry.score} แต้ม</span>`;
+          leaderboardList.appendChild(li);
+        });
+        statusDiv.className = "text-xs text-emerald-400 font-bold mt-1 h-4";
+        statusDiv.innerText = "📊 อัปเดตตารางคะแนนประจำห้องเรียบร้อย!";
+      })
+      .catch(() => {
+        leaderboardList.innerHTML = `<li class="text-rose-400 text-center py-1">⚠️ ไม่สามารถโหลดตารางอันดับได้</li>`;
+      });
+    }
+
+    // เปิดทำงาน MediaPipe Hands
     const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+    // โหมดประมวลผลจับพิกัดสูงสุด 1 มือแบบละเอียด 21 จุด
     hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     
     hands.onResults((results) => {
@@ -327,7 +428,7 @@
       height: 480
     });
     camera.start().then(() => { 
-      statusDiv.innerText = "✨ โหลด AI เสร็จสิ้น! ชวนเพื่อนสแกน QR Code แล้วกดเริ่มเกมได้เลย";
+      statusDiv.innerText = "✨ ระบบห้องประลองและ AI ตรวจจับ 5 นิ้วพร้อมใช้งาน!";
     });
   </script>
 </body>
