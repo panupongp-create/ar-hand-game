@@ -1,1 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AR Hand Motion Game 🖐️</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; margin: 0; padding: 20px; }
+    #video-container { position: relative; width: 640px; height: 480px; margin: 20px auto; background: #000; border: 3px solid #00ffcc; border-radius: 10px; }
+    video, canvas { position: absolute; left: 0; top: 0; transform: rotateY(180deg); }
+    #score { font-size: 32px; color: #ffeb3b; font-weight: bold; }
+    #status { font-size: 18px; color: #00ffcc; margin: 10px; }
+  </style>
+</head>
+<body>
 
+  <h1>AR Hand Motion Game 🖐️</h1>
+  <div id="score">Score: <span id="current-score">0</span></div>
+  <div id="status">กำลังดาวน์โหลด AI และเปิดกล้อง...</div>
+  
+  <div id="video-container">
+    <video id="webcam" width="640" height="480" autoplay playsinline muted></video>
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+  </div>
+
+  <script>
+    // 🛑 วาง URL ของ Google Apps Script Web App ที่ได้จากขั้นตอนแรกตรงนี้ครับ
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw5fograqjsSlD69_y0JTHzkpIf961Nad9Htv-p-TKS_BfjKi1eMAOkgmWBC9mBlx3c/exec";
+
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+    
+    let score = 0;
+    let target = { x: 320, y: 240, radius: 30 };
+    let isSaving = false;
+
+    function drawGame(landmarks) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // วาดเป้าหมายสีแดง
+      ctx.beginPath();
+      ctx.arc(target.x, target.y, target.radius, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ff3366';
+      ctx.fill();
+
+      if (landmarks) {
+        const indexFinger = landmarks[8]; // ปลายนิ้วชี้
+        const hX = (1 - indexFinger.x) * canvas.width;
+        const hY = indexFinger.y * canvas.height;
+
+        // วาดจุดที่นิ้วชี้
+        ctx.beginPath();
+        ctx.arc(hX, hY, 12, 0, 2 * Math.PI);
+        ctx.fillStyle = '#00ff00';
+        ctx.fill();
+
+        // ตรวจสอบการชน
+        const dist = Math.hypot(hX - target.x, hY - target.y);
+        if (dist < target.radius + 12) {
+          score += 10;
+          document.getElementById('current-score').innerText = score;
+          target.x = Math.random() * (canvas.width - 60) + 30;
+          target.y = Math.random() * (canvas.height - 60) + 30;
+          
+          // เมื่อได้คะแนนถึง 50 ส่งข้อมูลเข้า Google Sheets ทันที
+          if (score >= 50 && !isSaving) {
+            sendScoreToGoogleSheet(score);
+          }
+        }
+      }
+    }
+
+    // ฟังก์ชันส่งคะแนนข้ามไปที่ Google Sheets (ปลอดภัย ไม่โดน Sandbox บล็อก)
+    function sendScoreToGoogleSheet(finalScore) {
+      isSaving = true;
+      statusDiv.innerText = "กำลังส่งคะแนนไปที่ Google Sheets...";
+      
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        mode: "no-cors", // ใช้โหมดนี้เพื่อเลี่ยงปัญหา CORS
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ player: "AR_Player", score: finalScore })
+      })
+      .then(() => {
+        statusDiv.innerText = "🎉 บันทึกคะแนนลง Google Sheets เรียบร้อย!";
+        setTimeout(() => { isSaving = false; statusDiv.innerText = "เล่นเกมต่อได้เลย!"; }, 3000);
+      })
+      .catch(err => {
+        statusDiv.innerText = "❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์";
+        isSaving = false;
+      });
+    }
+
+    // เริ่มทำงานมอดูลทำนายมือ
+    const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+    hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    hands.onResults((results) => {
+      if(!isSaving) statusDiv.innerText = "🎮 ระบบพร้อม! ใช้นิ้วชี้แตะจุดสีแดง";
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        drawGame(results.multiHandLandmarks[0]);
+      } else {
+        drawGame(null);
+      }
+    });
+
+    const camera = new Camera(video, {
+      onFrame: async () => { await hands.send({image: video}); },
+      width: 640,
+      height: 480
+    });
+    camera.start().then(() => { statusDiv.innerText = "โหลดสำเร็จ! กรุณายกมือขึ้นมาในกล้อง"; });
+  </script>
+</body>
+</html>
