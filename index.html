@@ -11,19 +11,22 @@
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4 antialiased selection:bg-teal-500">
 
-  <header class="text-center mb-2">
+  <header class="text-center mb-2 flex flex-col items-center">
     <h1 class="text-2xl md:text-4xl font-extrabold bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm">
       AR Math Sync Battle 🧠⚔️
     </h1>
-    <div class="flex justify-center gap-2 mt-1">
-      <span class="bg-slate-800 text-teal-400 text-xs px-2.5 py-0.5 rounded-full font-mono border border-slate-700">
+    <div class="flex flex-wrap justify-center gap-2 mt-2">
+      <span class="bg-slate-800 text-teal-400 text-xs px-2.5 py-1 rounded-full font-mono border border-slate-700">
         ROOM ID: <span id="room-id-display">กำลังสร้างห้อง...</span>
       </span>
-      <span id="role-badge" class="bg-slate-800 text-amber-400 text-xs px-2.5 py-0.5 rounded-full font-bold border border-slate-700">
+      <span id="role-badge" class="bg-slate-800 text-amber-400 text-xs px-2.5 py-1 rounded-full font-bold border border-slate-700">
         บทบาท: -
       </span>
+      <button onclick="createNewRoomHost()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black px-3 py-1 rounded-full shadow-md active:scale-95 transition-all">
+        ➕ สร้างห้องใหม่ของตัวเอง
+      </button>
     </div>
-    <p id="status" class="text-[11px] text-slate-400 mt-1 h-4 animate-pulse">กำลังติดตั้งระบบ AI นิ้วมือสัมผัส...</p>
+    <p id="status" class="text-[11px] text-slate-400 mt-1.5 h-4 animate-pulse">กำลังติดตั้งระบบ AI นิ้วมือสัมผัส...</p>
   </header>
 
   <section class="grid grid-cols-2 gap-4 w-full max-w-[640px] bg-slate-800/90 backdrop-blur border border-slate-700/50 p-3 rounded-2xl mb-3 text-center text-xl font-bold">
@@ -79,8 +82,8 @@
   </main>
 
   <script>
-    // 🛑 ใส่ URL ของ Google Apps Script Web App เวอร์ชันล่าสุดของคุณที่นี่
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzVyeJavz2NhGzuciHWtit6HDj2s6r0hOh0FLI7-oWpx6RQ0h-e6gci-OJR4hVlqIhM/exec";
+    // 🛑 ตรวจสอบให้แน่ใจว่าได้ใช้ URL ล่าสุดที่คุณทำการ Deploy ใหม่แล้วนะครับ
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxQ4bQIgsc9wQE7FoUQa7ofLmRhseIsQubGsh1hZIuiGBAmNVtYk-aM77zsfGfB8IQ/exec";
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
@@ -108,7 +111,7 @@
     let playerName = "Anonymous";
 
     let roomId = "";
-    let isHost = false; // ตัวแปรบอกว่าเป็นเจ้าของห้องหรือไม่
+    let isHost = false; 
     let currentQuestion = { num1: 0, num2: 0, op: '+', answer: 0 };
     let targets = [];
 
@@ -116,7 +119,12 @@
     let hoverStartTime = null;
     const HOVER_DURATION = 1500; 
 
-    // จัดการแบ่งบทบาท Room ID จาก URL เพื่อซิงค์กดเล่นพร้อมกัน
+    // ฟังก์ชันบังคับล้างประวัติห้องเดิม เพื่อสร้างห้องใหม่ในฐานะ Host
+    function createNewRoomHost() {
+      const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+      window.location.href = cleanUrl; // โหลดหน้าใหม่แบบไม่มี ?room= เพื่อบังคับเป็น Host ทันที
+    }
+
     function setupRoom() {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has('room')) {
@@ -126,10 +134,8 @@
         startBtn.innerText = "⏳ รอเจ้าของห้องกดเริ่มเกม...";
         startBtn.disabled = true;
         
-        // สำหรับ Guest: เปิดระบบดึงข้อมูลเช็กสถานะห้องทุกๆ 2 วินาที ว่าเริ่มหรือยัง
         checkRoomInterval = setInterval(checkRoomStateFromServer, 2000);
       } else {
-        // เป็นคนเปิดเว็บคนแรก = เจ้าของห้อง (Host)
         roomId = Math.floor(100000 + Math.random() * 900000).toString();
         isHost = true;
         document.getElementById('role-badge').innerText = "บทบาท: เจ้าของห้อง (Host)";
@@ -139,15 +145,14 @@
         const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomId;
         window.history.pushState({path:newUrl}, '', newUrl);
 
-        // ส่งสัญญาณบอกสคริปต์หลังบ้านว่าสร้างห้องใหม่เรียบร้อยแล้ว
         fetch(GAS_WEB_APP_URL, {
           method: "POST",
+          headers: { "Content-Type": "text/plain" }, // เปลี่ยนเป็น text/plain เพื่อป้องกัน CORS preflight issue ในบางเบราว์เซอร์
           body: JSON.stringify({ action: "createRoom", roomId: roomId })
         });
       }
       document.getElementById('room-id-display').innerText = roomId;
 
-      // เจน QR Code
       new QRCode(document.getElementById("qrcode"), {
         text: window.location.href,
         width: 100,
@@ -159,7 +164,6 @@
     }
     window.addEventListener('DOMContentLoaded', setupRoom);
 
-    // ฝั่ง Host กดเริ่มเกม
     function hostPressStart() {
       if (!isHost) return;
       const inputName = nameInput.value.trim();
@@ -168,30 +172,28 @@
       startBtn.innerText = "⏳ กำลังส่งคำสั่งสตาร์ท...";
       startBtn.disabled = true;
 
-      // ส่งคำสั่งไปเปลี่ยนสถานะในฐานข้อมูล Sheets ว่า "playing"
       fetch(GAS_WEB_APP_URL, {
         method: "POST",
+        headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "startGame", roomId: roomId })
       }).then(() => {
         localStartGameAction();
       });
     }
 
-    // ฝั่ง Guest คอยเช็กว่าโดน Host สั่งเริ่มหรือยัง
     function checkRoomStateFromServer() {
       fetch(`${GAS_WEB_APP_URL}?roomId=${roomId}&checkState=true`)
       .then(res => res.json())
       .then(data => {
         if (data.status === "playing") {
-          clearInterval(checkRoomInterval); // เลิกเช็ก
+          clearInterval(checkRoomInterval); 
           const inputName = nameInput.value.trim();
           if (inputName !== "") playerName = inputName;
-          localStartGameAction(); // สั่งเครื่องตัวเองเริ่มเล่นทันที!
+          localStartGameAction(); 
         }
-      });
+      }).catch(err => console.log("CORS Waiting..."));
     }
 
-    // ฟังก์ชันสั่งเริ่มนับถอยหลังตัวเกมหลัก
     function localStartGameAction() {
       score = 0;
       timeLeft = 60;
@@ -389,10 +391,8 @@
       inputGroup.classList.add('hidden'); 
       leaderboardArea.classList.remove('hidden'); 
 
-      // ล้างสถานะปุ่มเผื่อกดเล่นรอบใหม่ได้
       startBtn.disabled = false;
       startBtn.innerText = "เปิดศึกรอบถัดไป 🔄";
-      // ถ้าเป็น Guest กดรอบถัดไปจะเปลี่ยนฟังก์ชันเป็น Host เพื่อรีสตาร์ทรอบใหม่เองได้เลย
       startBtn.setAttribute("onclick", "location.reload()"); 
 
       overlayScreen.classList.remove('opacity-0', 'pointer-events-none');
@@ -403,6 +403,7 @@
         
         fetch(GAS_WEB_APP_URL, {
           method: "POST",
+          headers: { "Content-Type": "text/plain" },
           body: JSON.stringify({ action: "submitScore", roomId: roomId, player: playerName, score: score })
         })
         .then(() => {
