@@ -2,103 +2,256 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>AR Hand Motion Game 🖐️</title>
+  <title>AR Math Motion Game 🧠🔢</title>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: white; margin: 0; padding: 20px; }
-    #video-container { position: relative; width: 640px; height: 480px; margin: 20px auto; background: #000; border: 3px solid #00ffcc; border-radius: 10px; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #1a1a1a; color: white; margin: 0; padding: 10px; }
+    h1 { margin-bottom: 5px; color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.3); }
+    #info-panel { display: flex; justify-content: center; gap: 40px; font-size: 24px; font-weight: bold; margin: 10px auto; background: #2a2a2a; padding: 10px; width: 620px; border-radius: 8px; }
+    #timer { color: #ff3366; }
+    #score { color: #ffeb3b; }
+    #question-box { font-size: 36px; font-weight: bold; color: #fff; margin: 15px auto; background: #333; width: 300px; padding: 5px 15px; border-radius: 10px; border: 2px dashed #00ffcc; }
+    #status { font-size: 16px; color: #aaa; margin: 5px; height: 20px; }
+    #video-container { position: relative; width: 640px; height: 480px; margin: 10px auto; background: #000; border: 4px solid #444; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
     video, canvas { position: absolute; left: 0; top: 0; transform: rotateY(180deg); }
-    #score { font-size: 32px; color: #ffeb3b; font-weight: bold; }
-    #status { font-size: 18px; color: #00ffcc; margin: 10px; }
+    #overlay-screen { position: absolute; top:0; left:0; width:640px; height:480px; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; color: white; }
+    .btn { background: #00ffcc; color: #1a1a1a; border: none; padding: 12px 30px; font-size: 20px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 15px; transition: 0.2s; }
+    .btn:hover { background: #fff; transform: scale(1.05); }
+    #name-input { padding: 10px; font-size: 18px; border-radius: 5px; border: none; text-align: center; margin-bottom: 10px; width: 200px; }
   </style>
 </head>
 <body>
 
-  <h1>AR Hand Motion Game 🖐️</h1>
-  <div id="score">Score: <span id="current-score">0</span></div>
+  <h1>AR Math Motion Game 🧠🔢</h1>
+  
+  <div id="info-panel">
+    <div>⏱️ เวลา: <span id="timer">60</span> วินาที</div>
+    <div>⭐ คะแนน: <span id="current-score">0</span></div>
+  </div>
+
+  <div id="question-box">โจทย์จะขึ้นที่นี่</div>
   <div id="status">กำลังดาวน์โหลด AI และเปิดกล้อง...</div>
   
   <div id="video-container">
     <video id="webcam" width="640" height="480" autoplay playsinline muted></video>
     <canvas id="gameCanvas" width="640" height="480"></canvas>
+
+    <div id="overlay-screen">
+      <h2 id="overlay-title">ยินดีต้อนรับสู่เกมคณิตศาสตร์ AR!</h2>
+      <p id="overlay-desc">กรุณาใส่ชื่อของคุณเพื่อเริ่มเล่น:</p>
+      <input type="text" id="name-input" placeholder="ใส่ชื่อตรงนี้..." maxlength="15">
+      <button class="btn" id="start-btn" onclick="startGame()">เริ่มเล่นเกม 🎮</button>
+    </div>
   </div>
 
   <script>
-    // 🛑 วาง URL ของ Google Apps Script Web App ที่ได้จากขั้นตอนแรกตรงนี้ครับ
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw5fograqjsSlD69_y0JTHzkpIf961Nad9Htv-p-TKS_BfjKi1eMAOkgmWBC9mBlx3c/exec";
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const statusDiv = document.getElementById('status');
+    const timerDiv = document.getElementById('timer');
+    const scoreDiv = document.getElementById('current-score');
+    const questionBox = document.getElementById('question-box');
+    const overlayScreen = document.getElementById('overlay-screen');
+    const overlayTitle = document.getElementById('overlay-title');
+    const overlayDesc = document.getElementById('overlay-desc');
+    const nameInput = document.getElementById('name-input');
+    const startBtn = document.getElementById('start-btn');
     
     let score = 0;
-    let target = { x: 320, y: 240, radius: 30 };
+    let timeLeft = 60;
+    let gameActive = false;
     let isSaving = false;
+    let countdownInterval;
+    let playerName = "Anonymous";
 
+    // ตัวแปรระบบโจทย์คณิตศาสตร์
+    let currentQuestion = { num1: 0, num2: 0, op: '+', answer: 0 };
+    let targets = []; // เก็บตำแหน่งช้อยส์คำตอบ [ {x, y, radius, value, isCorrect} ]
+
+    // ฟังก์ชันสุ่มโจทย์คณิตศาสตร์
+    function generateQuestion() {
+      const ops = ['+', '-', '×'];
+      const op = ops[Math.floor(Math.random() * ops.length)];
+      let num1, num2, answer;
+
+      if (op === '+') {
+        num1 = Math.floor(Math.random() * 20) + 1;
+        num2 = Math.floor(Math.random() * 20) + 1;
+        answer = num1 + num2;
+      } else if (op === '-') {
+        num1 = Math.floor(Math.random() * 20) + 10;
+        num2 = Math.floor(Math.random() * num1); // ไม่ให้คำตอบติดลบ
+        answer = num1 - num2;
+      } else {
+        num1 = Math.floor(Math.random() * 10) + 1;
+        num2 = Math.floor(Math.random() * 9) + 1;
+        answer = num1 * num2;
+      }
+
+      currentQuestion = { num1, num2, op, answer };
+      questionBox.innerText = `${num1} ${op} ${num2} = ?`;
+
+      // สร้างตัวเลือกคำตอบ 2 ช้อยส์ (ซ้าย-ขวา) เพื่อให้ผู้เล่นเอื้อมมือแยกจากกันชัดเจน
+      let wrongAnswer = answer + (Math.random() > 0.5 ? 2 : -2);
+      if (wrongAnswer === answer || wrongAnswer < 0) wrongAnswer = answer + 5;
+
+      const correctOnLeft = Math.random() > 0.5;
+
+      targets = [
+        {
+          x: 160, // ฝั่งซ้ายของจอ
+          y: 240,
+          radius: 50,
+          value: correctOnLeft ? answer : wrongAnswer,
+          isCorrect: correctOnLeft,
+          color: '#00ffcc'
+        },
+        {
+          x: 480, // ฝั่งขวาของจอ
+          y: 240,
+          radius: 50,
+          value: correctOnLeft ? wrongAnswer : answer,
+          isCorrect: !correctOnLeft,
+          color: '#ff3366'
+        }
+      ];
+    }
+
+    // ฟังก์ชันวาดเกม AR
     function drawGame(landmarks) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // วาดเป้าหมายสีแดง
-      ctx.beginPath();
-      ctx.arc(target.x, target.y, target.radius, 0, 2 * Math.PI);
-      ctx.fillStyle = '#ff3366';
-      ctx.fill();
+      if (!gameActive) return;
 
+      // 1. วาดช้อยส์คำตอบทรงกลมทั้ง 2 วง
+      targets.forEach(tgt => {
+        ctx.beginPath();
+        ctx.arc(tgt.x, tgt.y, tgt.radius, 0, 2 * Math.PI);
+        ctx.fillStyle = tgt.color;
+        ctx.globalAlpha = 0.8;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        ctx.closePath();
+
+        // เขียนตัวเลขลงในวงกลมช้อยส์
+        ctx.fillStyle = '#1a1a1a';
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // ใช้ 640 - tgt.x เพราะแคนวาสกลับด้านกระจกเงา ตัวหนังสือจะได้ไม่กลับหัวกลับหาง
+        ctx.save();
+        ctx.translate(tgt.x, tgt.y);
+        ctx.scale(-1, 1); // สะท้อนอักษรกลับเพื่อให้คนส่องกล้องอ่านปกติ
+        ctx.fillText(tgt.value, 0, 0);
+        ctx.restore();
+      });
+
+      // 2. จับพิกัดนิ้วชี้ของผู้เล่น
       if (landmarks) {
-        const indexFinger = landmarks[8]; // ปลายนิ้วชี้
+        const indexFinger = landmarks[8]; 
         const hX = (1 - indexFinger.x) * canvas.width;
         const hY = indexFinger.y * canvas.height;
 
-        // วาดจุดที่นิ้วชี้
+        // วาดจุดเล็งที่ปลายนิ้วชี้ของผู้เล่น
         ctx.beginPath();
-        ctx.arc(hX, hY, 12, 0, 2 * Math.PI);
-        ctx.fillStyle = '#00ff00';
+        ctx.arc(hX, hY, 15, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#000';
+        ctx.stroke();
         ctx.fill();
+        ctx.closePath();
 
-        // ตรวจสอบการชน
-        const dist = Math.hypot(hX - target.x, hY - target.y);
-        if (dist < target.radius + 12) {
-          score += 10;
-          document.getElementById('current-score').innerText = score;
-          target.x = Math.random() * (canvas.width - 60) + 30;
-          target.y = Math.random() * (canvas.height - 60) + 30;
+        // 3. ตรวจสอบว่านิ้วชี้ชนช้อยส์ไหน
+        for (let i = 0; i < targets.length; i++) {
+          const tgt = targets[i];
+          const dist = Math.hypot(hX - tgt.x, hY - tgt.y);
           
-          // เมื่อได้คะแนนถึง 50 ส่งข้อมูลเข้า Google Sheets ทันที
-          if (score >= 50 && !isSaving) {
-            sendScoreToGoogleSheet(score);
+          if (dist < tgt.radius + 15) {
+            if (tgt.isCorrect) {
+              score += 10;
+              statusDiv.style.color = '#00ff00';
+              statusDiv.innerText = "ถูกต้อง! 🎉 +10 คะแนน";
+            } else {
+              score = Math.max(0, score - 5); // ตอบผิดหัก 5 คะแนน
+              statusDiv.style.color = '#ff3366';
+              statusDiv.innerText = "💥 ผิดจ้า! หัก 5 คะแนน";
+            }
+            scoreDiv.innerText = score;
+            generateQuestion(); // สุ่มข้อต่อไปทันที
+            break;
           }
         }
       }
     }
 
-    // ฟังก์ชันส่งคะแนนข้ามไปที่ Google Sheets (ปลอดภัย ไม่โดน Sandbox บล็อก)
-    function sendScoreToGoogleSheet(finalScore) {
-      isSaving = true;
-      statusDiv.innerText = "กำลังส่งคะแนนไปที่ Google Sheets...";
+    // เริ่มต้นนับถอยหลังเกม
+    function startGame() {
+      const inputName = nameInput.value.trim();
+      if (inputName !== "") playerName = inputName;
       
-      fetch(GAS_WEB_APP_URL, {
-        method: "POST",
-        mode: "no-cors", // ใช้โหมดนี้เพื่อเลี่ยงปัญหา CORS
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player: "AR_Player", score: finalScore })
-      })
-      .then(() => {
-        statusDiv.innerText = "🎉 บันทึกคะแนนลง Google Sheets เรียบร้อย!";
-        setTimeout(() => { isSaving = false; statusDiv.innerText = "เล่นเกมต่อได้เลย!"; }, 3000);
-      })
-      .catch(err => {
-        statusDiv.innerText = "❌ เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์";
-        isSaving = false;
-      });
+      // รีเซ็ตค่าระบบ
+      score = 0;
+      timeLeft = 60;
+      isSaving = false;
+      scoreDiv.innerText = score;
+      timerDiv.innerText = timeLeft;
+      overlayScreen.style.display = 'none';
+      nameInput.style.display = 'none';
+      gameActive = true;
+      
+      generateQuestion();
+
+      countdownInterval = setInterval(() => {
+        timeLeft--;
+        timerDiv.innerText = timeLeft;
+
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
     }
 
-    // เริ่มทำงานมอดูลทำนายมือ
+    // จบเกมและส่งคะแนนไป Google Sheets
+    function endGame() {
+      gameActive = false;
+      clearInterval(countdownInterval);
+      questionBox.innerText = "หมดเวลา!";
+      overlayScreen.style.display = 'flex';
+      overlayTitle.innerText = "🏁 จบเกมการแข่งขัน!";
+      overlayDesc.innerHTML = `ผู้เล่น: <b>${playerName}</b><br>ทำคะแนนรวมได้: <span style="color:#ffeb3b; font-size:28px;"><b>${score} คะแนน</b></span>`;
+      startBtn.innerText = "เล่นใหม่อีกครั้ง 🔄";
+      
+      // ส่งคะแนนหลังบ้าน
+      if (!isSaving) {
+        isSaving = true;
+        statusDiv.innerText = "💾 กำลังบันทึกคะแนนของท่านเข้าสู่ Leaderboard...";
+        
+        fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player: playerName, score: score })
+        })
+        .then(() => {
+          statusDiv.innerText = "✅ บันทึกคะแนนลง Google Sheets เรียบร้อยแล้ว!";
+        })
+        .catch(err => {
+          statusDiv.innerText = "❌ ไม่สามารถเชื่อมต่อตารางคะแนนได้";
+          isSaving = false;
+        });
+      }
+    }
+
+    // ตั้งค่า AI และ กล้องเว็บแคม (MediaPipe)
     const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
     hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+    
     hands.onResults((results) => {
-      if(!isSaving) statusDiv.innerText = "🎮 ระบบพร้อม! ใช้นิ้วชี้แตะจุดสีแดง";
       if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         drawGame(results.multiHandLandmarks[0]);
       } else {
@@ -111,7 +264,9 @@
       width: 640,
       height: 480
     });
-    camera.start().then(() => { statusDiv.innerText = "โหลดสำเร็จ! กรุณายกมือขึ้นมาในกล้อง"; });
+    camera.start().then(() => { 
+      statusDiv.innerText = "โมเดลโหลดเสร็จสมบูรณ์! พร้อมเข้าสู่ระบบเกม";
+    });
   </script>
 </body>
 </html>
