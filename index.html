@@ -57,8 +57,15 @@
         </p>
         
         <div id="qrcode-area" class="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-3 mb-4 flex flex-col items-center">
-          <p class="text-[11px] font-bold text-amber-400 mb-2 text-center">📢 ให้เพื่อนสแกนเพื่อเข้าห้องนี้เล่นพร้อมกัน!</p>
-          <div id="qrcode" class="p-2 bg-white rounded-xl shadow-md"></div>
+          <p class="text-[11px] font-bold text-amber-400 mb-2 text-center">📢 ให้เพื่อนสแกนหรือใช้ลิงก์ด้านล่างเพื่อเข้าห้องนี้!</p>
+          <div id="qrcode" class="p-2 bg-white rounded-xl shadow-md mb-3"></div>
+          
+          <div class="w-full flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl p-2 pl-3">
+            <input type="text" id="share-url-input" class="w-full bg-transparent text-[11px] font-mono text-teal-400 focus:outline-none" readonly value="กำลังสร้างลิงก์...">
+            <button onclick="copyRoomLink()" id="copy-btn" class="bg-teal-500 hover:bg-teal-400 active:scale-95 text-slate-950 text-[10px] font-black px-3 py-1.5 rounded-lg shrink-0 transition-all">
+              คัดลอกลิงก์ 📋
+            </button>
+          </div>
         </div>
 
         <div id="leaderboard-area" class="w-full hidden mb-4 bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-left">
@@ -82,8 +89,7 @@
   </main>
 
   <script>
-    // 🛑 อย่าลืมใส่ URL เว็บแอปที่เพิ่งทำการ Deploy เวอร์ชันล่าสุดของคุณตรงนี้ครับ!
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzT7q8qz1h6ld9SE2Bas6RFw0oXFLe1PR7HHx_0Pb3WdqbrgoxyfmLIiVMywGjsn4Ft/exec";
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx4MFtifRBynuqYvy3fE13wXNcWw5OkODZVIWb8_Cqa_Zap5uPFD76RAif_u6yNsb9A/exec";
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
@@ -101,6 +107,8 @@
     const startBtn = document.getElementById('start-btn');
     const leaderboardArea = document.getElementById('leaderboard-area');
     const leaderboardList = document.getElementById('leaderboard-list');
+    const shareUrlInput = document.getElementById('share-url-input');
+    const copyBtn = document.getElementById('copy-btn');
     
     let score = 0;
     let timeLeft = 60;
@@ -119,7 +127,6 @@
     let hoverStartTime = null;
     const HOVER_DURATION = 1500; 
 
-    // ฟังก์ชันช่วยดึงข้อมูลแบบ JSONP เพื่อทะลุ CORS บล็อก + ระบบ Timeout ป้องกันค้าง
     function fetchJSONP(url, callbackName) {
       return new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -160,6 +167,7 @@
 
     function setupRoom() {
       const urlParams = new URLSearchParams(window.location.search);
+      let guestUrl = "";
 
       if (urlParams.has('room') && urlParams.get('host') !== '1') {
         // ===== Guest Mode =====
@@ -171,6 +179,7 @@
         startBtn.disabled = true;
 
         checkRoomInterval = setInterval(checkRoomStateFromServer, 1000);
+        guestUrl = window.location.origin + window.location.pathname + '?room=' + roomId;
       } else {
         // ===== Host Mode =====
         roomId = urlParams.get('room') || Math.floor(100000 + Math.random() * 900000).toString();
@@ -185,12 +194,15 @@
         window.history.replaceState({}, '', hostUrl);
 
         fetch(`${GAS_WEB_APP_URL}?action=createRoom&roomId=${roomId}`, { method: "GET", mode: "no-cors" });
+        guestUrl = window.location.origin + window.location.pathname + '?room=' + roomId;
       }
 
       document.getElementById('room-id-display').innerText = roomId;
-      document.getElementById("qrcode").innerHTML = "";
+      
+      // อัปเดตลิงก์ในช่อง Input ให้เพื่อนก๊อปปี้ไปแชร์ต่อได้
+      shareUrlInput.value = guestUrl;
 
-      const guestUrl = window.location.origin + window.location.pathname + '?room=' + roomId;
+      document.getElementById("qrcode").innerHTML = "";
       new QRCode(document.getElementById("qrcode"), {
         text: guestUrl,
         width: 100,
@@ -201,7 +213,28 @@
       });
     }
 
-    // 🛠️ แก้ไขจุดที่ 1: ใช้เทคนิค Delay 500ms ให้ฝั่งเซิร์ฟเวอร์อัปเดตสเตตัสก่อนเข้าเกม ป้องกัน Guest หลุดขบวน ตอบโจทย์ no-cors
+    // ฟังก์ชันช่วยคัดลอกลิงก์ไปยังคลิปบอร์ด
+    function copyRoomLink() {
+      shareUrlInput.select();
+      shareUrlInput.setSelectionRange(0, 99999); /* สำหรับสมาร์ทโฟน */
+      
+      navigator.clipboard.writeText(shareUrlInput.value)
+        .then(() => {
+          copyBtn.innerText = "คัดลอกแล้ว! ✓";
+          copyBtn.className = "bg-emerald-500 text-slate-950 text-[10px] font-black px-3 py-1.5 rounded-lg shrink-0 transition-all";
+          
+          // คืนค่าข้อความปุ่มหลังจากผ่านไป 2 วินาที
+          setTimeout(() => {
+            copyBtn.innerText = "คัดลอกลิงก์ 📋";
+            copyBtn.className = "bg-teal-500 hover:bg-teal-400 active:scale-95 text-slate-950 text-[10px] font-black px-3 py-1.5 rounded-lg shrink-0 transition-all";
+          }, 2000);
+        })
+        .catch(err => {
+          console.error("คัดลอกลิงก์ล้มเหลว:", err);
+          alert("ไม่สามารถคัดลอกลิงก์ได้อัตโนมัติ กรุณาก๊อปปี้ข้อความในกล่องด้วยตนเองครับ");
+        });
+    }
+
     function hostPressStart() {
       if (!isHost) return;
 
@@ -244,7 +277,6 @@
       timeLeft = 60;
       isSaving = false;
       
-      // 🛠️ แก้ไขจุดที่ 4: รีเซ็ต UI State ของ Overlay เพื่อความปลอดภัยและรองรับการขยายฟีเจอร์ที่ไม่ต้อง Reload หน้าจอในอนาคต
       inputGroup.classList.remove('hidden');
       leaderboardArea.classList.add('hidden');
       leaderboardList.innerHTML = '<li class="text-slate-500 text-center py-1">รอการอัปเดตคะแนน...</li>';
@@ -434,7 +466,6 @@
     function endGame() {
       gameActive = false;
       
-      // 🛠️ แก้ไขจุดที่ 3: สั่งเคลียร์ Interval ทั้งหมด (ทั้งตัวนับเวลาและตัว Polling ห้อง) ป้องกันการสแปมดึงสถานะซ้ำซ้อนหลังจบเกม
       if (countdownInterval) {
         clearInterval(countdownInterval);
         countdownInterval = null;
@@ -508,7 +539,6 @@
 
     window.addEventListener('DOMContentLoaded', setupRoom);
 
-    // 🛠️ แก้ไขส่วนเสริม: เพิ่มการดัก Event 'beforeunload' เพื่อล้าง Interval ทั้งหมดล่วงหน้า ป้องกัน Memory Leak เวลาผู้ใช้ปิด/รีโหลดแท็บเบราว์เซอร์
     window.addEventListener('beforeunload', () => {
       if (countdownInterval) clearInterval(countdownInterval);
       if (checkRoomInterval) clearInterval(checkRoomInterval);
@@ -531,7 +561,6 @@
       height: 480
     });
     
-    // 🛠️ แก้ไขจุดที่ 2: เพิ่มการดัก .catch() ให้กับ camera.start() เพื่อรองรับกรณีผู้ใช้ปฏิเสธกล้อง ป้องกันแอปพังอย่างนุ่มนวล
     camera.start()
       .then(() => { 
         statusDiv.innerText = "✨ ระบบซิงค์ห้องแบบ JSONP ปลอดภัยจาก CORS พร้อมทำงาน!";
