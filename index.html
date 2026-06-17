@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AR Math Multiplayer Sync Battle 🧠⚔️</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -82,8 +82,8 @@
   </main>
 
   <script>
-    // 🛑 อย่าลืมใส่ URL เว็บแอปที่เพิ่งทำการ Deploy เวอร์ชันล่าสุดของคุณตรงนี้ครับ!
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynulNk0NfXNcp5xukN_mi3-DoKBy28vzpU4BA43rx9jBnTpf3VwGGQHO2qdiNiBll8/exec";
+    // 🛑 ตรวจสอบให้มั่นใจว่า URL ตรงกับเว็บแอปพลิเคชันเวอร์ชันล่าสุดบน Google Apps Script
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbweih5UBsOLkgGnGldgm99Ex2uG71dUDNzSRsuXAfOgb3ebwh6imKgvKJPnWnU3cc9R/exec";
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
@@ -121,12 +121,20 @@
 
     // ฟังก์ชันช่วยดึงข้อมูลแบบ JSONP เพื่อทะลุ CORS บล็อก
     function fetchJSONP(url, callbackName) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         const sep = url.includes('?') ? '&' : '?';
         script.src = `${url}${sep}callback=${callbackName}`;
         
+        // ตั้งเวลา Timeout เผื่อเน็ตช้าเกินไป
+        const timeout = setTimeout(() => {
+          document.body.removeChild(script);
+          delete window[callbackName];
+          reject(new Error("Timeout"));
+        }, 8000);
+
         window[callbackName] = (data) => {
+          clearTimeout(timeout);
           resolve(data);
           document.body.removeChild(script);
           delete window[callbackName];
@@ -161,8 +169,10 @@
         const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomId;
         window.history.pushState({path:newUrl}, '', newUrl);
 
-        // ใช้ no-cors ในการยิงข้อมูลขาไป เพื่อไม่ให้ติดปัญหาบล็อกสิทธิ์คำขอสร้างห้อง
-        fetch(`${GAS_WEB_APP_URL}?action=createRoom&roomId=${roomId}`, { method: "GET", mode: "no-cors" });
+        // ใช้ฟังก์ชัน JSONP เพื่อตรวจสอบและสร้างห้องให้เข้า Sheets ชัวร์ๆ
+        const callbackName = "cb_create_" + Date.now();
+        fetchJSONP(`${GAS_WEB_APP_URL}?action=createRoom&roomId=${roomId}`, callbackName)
+        .then(res => console.log("สร้างห้องบนระบบสำเร็จ:", res));
       }
       document.getElementById('room-id-display').innerText = roomId;
 
@@ -185,18 +195,21 @@
       startBtn.innerText = "⏳ กำลังส่งคำสั่งสตาร์ท...";
       startBtn.disabled = true;
 
-      // ส่งคำสั่งแบบ no-cors มั่นใจว่าเข้าชีทแน่นอนและไม่ค้างหน้าบ้าน
-      fetch(`${GAS_WEB_APP_URL}?action=startGame&roomId=${roomId}`, { method: "GET", mode: "no-cors" });
-      
-      // บังคับเครื่อง Host เริ่มเล่นทันทีในอีก 500ms ถัดมา
-      setTimeout(() => {
+      // เปลี่ยนมาใช้ระบบ JSONP ส่งตรงเพื่อบังคับให้อัปเดตสถานะ 'playing' บนคลาวด์ได้แน่นอน
+      const callbackName = "cb_start_" + Date.now();
+      fetchJSONP(`${GAS_WEB_APP_URL}?action=startGame&roomId=${roomId}`, callbackName)
+      .then((data) => {
+        console.log("เซิร์ฟเวอร์ตอบกลับการเริ่มเกม:", data);
         localStartGameAction();
-      }, 500);
+      })
+      .catch((err) => {
+        console.error("เกิดข้อผิดพลาดเครือข่าย แต่ระบบจะเริ่มรันด่านให้เล่น:", err);
+        localStartGameAction(); 
+      });
     }
 
     function checkRoomStateFromServer() {
-      // ดึงสถานะกลับมาอ่านแบบทะลุ CORS ด้วยเทคนิค JSONP
-      const callbackName = "cb_" + Date.now();
+      const callbackName = "cb_check_" + Date.now();
       fetchJSONP(`${GAS_WEB_APP_URL}?roomId=${roomId}&checkState=true`, callbackName)
       .then(data => {
         if (data && data.status === "playing") {
@@ -205,7 +218,7 @@
           if (inputName !== "") playerName = inputName;
           localStartGameAction(); 
         }
-      });
+      }).catch(err => console.log("กำลังรอสัญญาณเริ่มเกมจาก Host..."));
     }
 
     function localStartGameAction() {
@@ -415,11 +428,13 @@
         isSaving = true;
         statusDiv.innerText = "📡 กำลังส่งคะแนนไปยัง Leaderboard ประจำห้อง...";
         
-        // ส่งแต้มจบเกมแบบปลอดภัยไม่ค้างหน้าจอ
-        fetch(`${GAS_WEB_APP_URL}?action=submitScore&roomId=${roomId}&player=${encodeURIComponent(playerName)}&score=${score}`, { method: "GET", mode: "no-cors" });
-        
-        statusDiv.innerText = "🔄 กำลังอัปเดตตารางคะแนนรวมของห้อง...";
-        setTimeout(fetchLeaderboard, 1500);
+        // ส่งแต้มจบเกมผ่านรูปแบบ JSONP เพื่อให้สามารถรับสาย Callback มาดึงตารางคะแนนต่อได้ทันที
+        const callbackName = "cb_submit_" + Date.now();
+        fetchJSONP(`${GAS_WEB_APP_URL}?action=submitScore&roomId=${roomId}&player=${encodeURIComponent(playerName)}&score=${score}`, callbackName)
+        .then(() => {
+          statusDiv.innerText = "🔄 กำลังอัปเดตตารางคะแนนรวมของห้อง...";
+          fetchLeaderboard();
+        });
       }
     }
 
