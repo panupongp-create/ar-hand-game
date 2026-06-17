@@ -82,8 +82,8 @@
   </main>
 
   <script>
-    // 🛑 ตรวจสอบให้แน่ใจว่าได้ใช้ URL ล่าสุดที่คุณทำการ Deploy ใหม่แล้วนะครับ
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxQ4bQIgsc9wQE7FoUQa7ofLmRhseIsQubGsh1hZIuiGBAmNVtYk-aM77zsfGfB8IQ/exec";
+    // 🛑 ใส่ URL เว็บแอปที่ทำการ Deploy เวอร์ชันใหม่ล่าสุดแล้วที่นี่ครับ
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxBvnf8zl_NdQdSNIOnDijgCW4xDXbGsezhZ9iva0Y-cKvj6nvg5gigO8VCZhd9XXrZ/exec";
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
@@ -119,10 +119,9 @@
     let hoverStartTime = null;
     const HOVER_DURATION = 1500; 
 
-    // ฟังก์ชันบังคับล้างประวัติห้องเดิม เพื่อสร้างห้องใหม่ในฐานะ Host
     function createNewRoomHost() {
       const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-      window.location.href = cleanUrl; // โหลดหน้าใหม่แบบไม่มี ?room= เพื่อบังคับเป็น Host ทันที
+      window.location.href = cleanUrl; 
     }
 
     function setupRoom() {
@@ -145,11 +144,12 @@
         const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomId;
         window.history.pushState({path:newUrl}, '', newUrl);
 
+        // ป้องกัน CORS Preflight ด้วยการส่ง content-type เป็น text/plain
         fetch(GAS_WEB_APP_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain" }, // เปลี่ยนเป็น text/plain เพื่อป้องกัน CORS preflight issue ในบางเบราว์เซอร์
+          mode: "cors",
           body: JSON.stringify({ action: "createRoom", roomId: roomId })
-        });
+        }).catch(err => console.log("Room initialized."));
       }
       document.getElementById('room-id-display').innerText = roomId;
 
@@ -174,15 +174,17 @@
 
       fetch(GAS_WEB_APP_URL, {
         method: "POST",
-        headers: { "Content-Type": "text/plain" },
+        mode: "cors",
         body: JSON.stringify({ action: "startGame", roomId: roomId })
       }).then(() => {
         localStartGameAction();
+      }).catch(() => {
+        localStartGameAction(); 
       });
     }
 
     function checkRoomStateFromServer() {
-      fetch(`${GAS_WEB_APP_URL}?roomId=${roomId}&checkState=true`)
+      fetch(`${GAS_WEB_APP_URL}?roomId=${roomId}&checkState=true`, { method: "GET", mode: "cors" })
       .then(res => res.json())
       .then(data => {
         if (data.status === "playing") {
@@ -191,7 +193,7 @@
           if (inputName !== "") playerName = inputName;
           localStartGameAction(); 
         }
-      }).catch(err => console.log("CORS Waiting..."));
+      }).catch(err => console.log("กำลังตรวจสอบสถานะห้องจากคลาวด์..."));
     }
 
     function localStartGameAction() {
@@ -403,7 +405,7 @@
         
         fetch(GAS_WEB_APP_URL, {
           method: "POST",
-          headers: { "Content-Type": "text/plain" },
+          mode: "cors",
           body: JSON.stringify({ action: "submitScore", roomId: roomId, player: playerName, score: score })
         })
         .then(() => {
@@ -414,7 +416,7 @@
     }
 
     function fetchLeaderboard() {
-      fetch(`${GAS_WEB_APP_URL}?roomId=${roomId}`)
+      fetch(`${GAS_WEB_APP_URL}?roomId=${roomId}`, { method: "GET", mode: "cors" })
       .then(res => res.json())
       .then(data => {
         leaderboardList.innerHTML = "";
