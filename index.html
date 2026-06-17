@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR Math Multiplayer Sync Battle 🧠⚔️</title>
+  <title>AR Math Sync Battle 🧠⚔️</title>
   <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="bg-slate-900 text-white min-h-screen flex flex-col items-center justify-center p-4 antialiased selection:bg-teal-500">
 
@@ -15,17 +14,6 @@
     <h1 class="text-2xl md:text-4xl font-extrabold bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent drop-shadow-sm">
       AR Math Sync Battle 🧠⚔️
     </h1>
-    <div class="flex flex-wrap justify-center gap-2 mt-2">
-      <span class="bg-slate-800 text-teal-400 text-xs px-2.5 py-1 rounded-full font-mono border border-slate-700">
-        ROOM ID: <span id="room-id-display">กำลังสร้างห้อง...</span>
-      </span>
-      <span id="role-badge" class="bg-slate-800 text-amber-400 text-xs px-2.5 py-1 rounded-full font-bold border border-slate-700">
-        บทบาท: -
-      </span>
-      <button onclick="createNewRoomHost()" class="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-black px-3 py-1 rounded-full shadow-md active:scale-95 transition-all">
-        ➕ สร้างห้องใหม่ของตัวเอง
-      </button>
-    </div>
     <p id="status" class="text-[11px] text-slate-400 mt-1.5 h-4 animate-pulse">กำลังติดตั้งระบบ AI นิ้วมือสัมผัส...</p>
   </header>
 
@@ -41,40 +29,35 @@
   </section>
 
   <div id="question-box" class="text-2xl md:text-3xl font-black bg-slate-800 px-6 py-2 rounded-xl border-2 border-dashed border-teal-400/70 shadow-lg mb-4 w-full max-w-[280px] text-center tracking-wide">
-    🤔 รอเริ่มห้อง...
+    🧠 ตั้งชื่อเพื่อเริ่มเล่น
   </div>
   
   <main id="video-container" class="relative w-full max-w-[640px] aspect-[4/3] bg-black border-4 border-slate-700 rounded-3xl overflow-hidden shadow-2xl">
     <video id="webcam" class="absolute inset-0 w-full h-full object-cover scale-x-[-1]" autoplay playsinline muted></video>
     <canvas id="gameCanvas" width="640" height="480" class="absolute inset-0 w-full h-full object-cover scale-x-[-1] z-10"></canvas>
 
-    <div id="overlay-screen" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center z-20 p-4 overflow-y-auto">
-      <div id="modal-box" class="max-w-md w-full bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-2xl flex flex-col items-center max-h-[455px] overflow-y-auto">
+    <div id="overlay-screen" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center z-20 p-4">
+      <div id="modal-box" class="max-w-md w-full bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-2xl flex flex-col items-center max-h-[440px] overflow-y-auto">
         
-        <h2 id="overlay-title" class="text-xl font-black text-teal-400 mb-1">🎮 ระบบห้องรอเล่นพร้อมกัน</h2>
-        <p id="overlay-desc" class="text-slate-400 text-[11px] mb-3 text-center max-w-xs">
-          กางมือออก <span class="text-emerald-400 font-bold">เล็งพอยน์เตอร์ค้างบนช้อยส์</span> แถบสีเขียวเต็มวงเพื่อตอบ!
+        <h2 id="overlay-title" class="text-xl font-black text-teal-400 mb-1">🎮 ยินดีต้อนรับสู่สมรภูมิคณิตศาสตร์ AR</h2>
+        <p id="overlay-desc" class="text-slate-400 text-[11px] mb-4 text-center max-w-xs">
+          กางมือออก <span class="text-emerald-400 font-bold">เล็งพอยน์เตอร์ค้างบนช้อยส์</span> แถบสีเขียวเต็มวงเพื่อตอบโจทย์คณิต!
         </p>
-        
-        <div id="qrcode-area" class="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-3 mb-4 flex flex-col items-center">
-          <p class="text-[11px] font-bold text-amber-400 mb-2 text-center">📢 ให้เพื่อนสแกนเพื่อเข้าห้องนี้เล่นพร้อมกัน!</p>
-          <div id="qrcode" class="p-2 bg-white rounded-xl shadow-md"></div>
-        </div>
-
-        <div id="leaderboard-area" class="w-full hidden mb-4 bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-left">
-          <h3 class="text-xs font-bold text-teal-400 uppercase tracking-wider border-b border-slate-800 pb-1 mb-2 text-center">🏆 สรุปอันดับคะแนนในห้องนี้</h3>
-          <ol id="leaderboard-list" class="text-xs space-y-1 max-h-[120px] overflow-y-auto pr-1">
-            <li class="text-slate-500 text-center py-1">รอการอัปเดตคะแนน...</li>
-          </ol>
-        </div>
 
         <div id="input-group" class="w-full mb-4">
           <label class="block text-[10px] text-left font-bold text-slate-400 uppercase tracking-widest mb-1">ป้อนชื่อผู้เล่นของคุณ</label>
           <input type="text" id="name-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-center text-sm font-bold focus:outline-none focus:border-teal-400 text-teal-300 placeholder-slate-700 transition-all" placeholder="พิมพ์ชื่อเล่น..." maxlength="12">
         </div>
 
-        <button id="start-btn" onclick="hostPressStart()" class="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-extrabold text-sm px-6 py-2.5 rounded-xl transition-all disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed">
-          กำลังเตรียมห้อง...
+        <div id="leaderboard-area" class="w-full hidden mb-4 bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-left">
+          <h3 class="text-xs font-bold text-teal-400 uppercase tracking-wider border-b border-slate-800 pb-1 mb-2 text-center">🏆 ตารางอันดับคะแนนรวมทั้งหมด</h3>
+          <ol id="leaderboard-list" class="text-xs space-y-1 max-h-[140px] overflow-y-auto pr-1">
+            <li class="text-slate-500 text-center py-1">กำลังโหลดตารางคะแนนจาก Google Sheets...</li>
+          </ol>
+        </div>
+
+        <button id="start-btn" onclick="pressStartGame()" class="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-extrabold text-sm px-6 py-2.5 rounded-xl transition-all disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed">
+          เข้าสู่เกม 🚀
         </button>
 
       </div>
@@ -82,7 +65,7 @@
   </main>
 
   <script>
-    // 🛑 ตรวจสอบให้มั่นใจว่า URL ตรงกับเว็บแอปพลิเคชันเวอร์ชันล่าสุดบน Google Apps Script
+    // 🛑 ตรวจสอบให้มั่นใจว่า URL ตรงกับเว็บแอปพลิเคชันล่าสุดบน Google Apps Script
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbweih5UBsOLkgGnGldgm99Ex2uG71dUDNzSRsuXAfOgb3ebwh6imKgvKJPnWnU3cc9R/exec";
 
     const video = document.getElementById('webcam');
@@ -107,11 +90,10 @@
     let gameActive = false;
     let isSaving = false;
     let countdownInterval;
-    let checkRoomInterval;
     let playerName = "Anonymous";
 
-    let roomId = "";
-    let isHost = false; 
+    // ตั้งค่า roomId เป็นคำว่า "GLOBAL" ไปเลยเพราะเราปรับเป็นแบบเล่นคนเดียวแล้ว
+    const roomId = "GLOBAL"; 
     let currentQuestion = { num1: 0, num2: 0, op: '+', answer: 0 };
     let targets = [];
 
@@ -119,14 +101,13 @@
     let hoverStartTime = null;
     const HOVER_DURATION = 1500; 
 
-    // ฟังก์ชันช่วยดึงข้อมูลแบบ JSONP เพื่อทะลุ CORS บล็อก
+    // ฟังก์ชันช่วยดึงข้อมูลแบบ JSONP
     function fetchJSONP(url, callbackName) {
       return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         const sep = url.includes('?') ? '&' : '?';
         script.src = `${url}${sep}callback=${callbackName}`;
         
-        // ตั้งเวลา Timeout เผื่อเน็ตช้าเกินไป
         const timeout = setTimeout(() => {
           document.body.removeChild(script);
           delete window[callbackName];
@@ -139,89 +120,21 @@
           document.body.removeChild(script);
           delete window[callbackName];
         };
-        
         document.body.appendChild(script);
       });
     }
 
-    function createNewRoomHost() {
-      const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-      window.location.href = cleanUrl; 
-    }
-
-    function setupRoom() {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('room')) {
-        roomId = urlParams.get('room');
-        isHost = false;
-        document.getElementById('role-badge').innerText = "บทบาท: ผู้เข้าร่วม (Guest)";
-        startBtn.innerText = "⏳ รอเจ้าของห้องกดเริ่มเกม...";
-        startBtn.disabled = true;
-        
-        checkRoomInterval = setInterval(checkRoomStateFromServer, 2000);
-      } else {
-        roomId = Math.floor(100000 + Math.random() * 900000).toString();
-        isHost = true;
-        document.getElementById('role-badge').innerText = "บทบาท: เจ้าของห้อง (Host)";
-        startBtn.innerText = "🚀 เริ่มเกมสำหรับทุกคน";
-        startBtn.disabled = false;
-        
-        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomId;
-        window.history.pushState({path:newUrl}, '', newUrl);
-
-        // ใช้ฟังก์ชัน JSONP เพื่อตรวจสอบและสร้างห้องให้เข้า Sheets ชัวร์ๆ
-        const callbackName = "cb_create_" + Date.now();
-        fetchJSONP(`${GAS_WEB_APP_URL}?action=createRoom&roomId=${roomId}`, callbackName)
-        .then(res => console.log("สร้างห้องบนระบบสำเร็จ:", res));
-      }
-      document.getElementById('room-id-display').innerText = roomId;
-
-      new QRCode(document.getElementById("qrcode"), {
-        text: window.location.href,
-        width: 100,
-        height: 100,
-        colorDark : "#0f172a",
-        colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.M
-      });
-    }
-    window.addEventListener('DOMContentLoaded', setupRoom);
-
-    function hostPressStart() {
-      if (!isHost) return;
+    // ฟังก์ชันเมื่อผู้เล่นกดปุ่มเริ่มเกม
+    function pressStartGame() {
       const inputName = nameInput.value.trim();
-      if (inputName !== "") playerName = inputName;
-
-      startBtn.innerText = "⏳ กำลังส่งคำสั่งสตาร์ท...";
-      startBtn.disabled = true;
-
-      // เปลี่ยนมาใช้ระบบ JSONP ส่งตรงเพื่อบังคับให้อัปเดตสถานะ 'playing' บนคลาวด์ได้แน่นอน
-      const callbackName = "cb_start_" + Date.now();
-      fetchJSONP(`${GAS_WEB_APP_URL}?action=startGame&roomId=${roomId}`, callbackName)
-      .then((data) => {
-        console.log("เซิร์ฟเวอร์ตอบกลับการเริ่มเกม:", data);
-        localStartGameAction();
-      })
-      .catch((err) => {
-        console.error("เกิดข้อผิดพลาดเครือข่าย แต่ระบบจะเริ่มรันด่านให้เล่น:", err);
-        localStartGameAction(); 
-      });
-    }
-
-    function checkRoomStateFromServer() {
-      const callbackName = "cb_check_" + Date.now();
-      fetchJSONP(`${GAS_WEB_APP_URL}?roomId=${roomId}&checkState=true`, callbackName)
-      .then(data => {
-        if (data && data.status === "playing") {
-          clearInterval(checkRoomInterval); 
-          const inputName = nameInput.value.trim();
-          if (inputName !== "") playerName = inputName;
-          localStartGameAction(); 
-        }
-      }).catch(err => console.log("กำลังรอสัญญาณเริ่มเกมจาก Host..."));
-    }
-
-    function localStartGameAction() {
+      if (inputName === "") {
+        alert("กรุณาป้อนชื่อเล่นของคุณก่อนเข้าเล่นครับ!");
+        return;
+      }
+      playerName = inputName;
+      
+      // ปิดหน้าจอเปิดป๊อปอัปแล้วเข้าด่านเล่นทันที
+      overlayScreen.classList.add('opacity-0', 'pointer-events-none');
       score = 0;
       timeLeft = 60;
       isSaving = false;
@@ -229,9 +142,8 @@
       scoreDiv.innerText = score;
       timerDiv.innerText = timeLeft;
       statusDiv.className = "text-xs text-slate-400 mt-1 h-4";
-      statusDiv.innerText = "⚔️ สมรภูมิเริ่มแล้ว ลุยเลย!";
+      statusDiv.innerText = "⚔️ เริ่มคำนวณโจทย์ ลุยเลย!";
       
-      overlayScreen.classList.add('opacity-0', 'pointer-events-none');
       gameActive = true;
       generateQuestion();
 
@@ -412,39 +324,39 @@
       clearInterval(countdownInterval);
       questionBox.innerText = "🏁 หมดเวลา!";
       
-      overlayTitle.innerText = "🏁 การแข่งขันจบลงแล้ว!";
-      overlayDesc.innerHTML = `คะแนนของคุณ <b>${playerName}</b>: <span class="text-xl text-amber-400 font-black">${score} แต้ม</span>`;
+      overlayTitle.innerText = "🏁 สรุปผลการแข่งขันของคุณ";
+      overlayDesc.innerHTML = `ผู้เล่น <b>${playerName}</b> ทำคะแนนได้: <span class="text-xl text-amber-400 font-black">${score} แต้ม</span>`;
       
-      inputGroup.classList.add('hidden'); 
-      leaderboardArea.classList.remove('hidden'); 
+      inputGroup.classList.add('hidden'); // ซ่อนฟอร์มป้อนชื่อ
+      leaderboardArea.classList.remove('hidden'); // แสดงพื้นที่ Leaderboard ลำดับคะแนนรวม
 
-      startBtn.disabled = false;
-      startBtn.innerText = "เปิดศึกรอบถัดไป 🔄";
+      startBtn.innerText = "🔄 เล่นใหม่อีกรอบ";
       startBtn.setAttribute("onclick", "location.reload()"); 
 
       overlayScreen.classList.remove('opacity-0', 'pointer-events-none');
 
       if (!isSaving) {
         isSaving = true;
-        statusDiv.innerText = "📡 กำลังส่งคะแนนไปยัง Leaderboard ประจำห้อง...";
+        statusDiv.innerText = "📡 กำลังบันทึกคะแนนลง Google Sheets...";
         
-        // ส่งแต้มจบเกมผ่านรูปแบบ JSONP เพื่อให้สามารถรับสาย Callback มาดึงตารางคะแนนต่อได้ทันที
+        // บันทึกแต้มผ่านระบบ JSONP ที่ปลอดภัยจาก CORS
         const callbackName = "cb_submit_" + Date.now();
         fetchJSONP(`${GAS_WEB_APP_URL}?action=submitScore&roomId=${roomId}&player=${encodeURIComponent(playerName)}&score=${score}`, callbackName)
         .then(() => {
-          statusDiv.innerText = "🔄 กำลังอัปเดตตารางคะแนนรวมของห้อง...";
+          statusDiv.innerText = "🔄 ดึงข้อมูลตารางอันดับล่าสุด...";
           fetchLeaderboard();
         });
       }
     }
 
+    // ฟังก์ชันไปดึงประวัติตารางคะแนนใน Sheet ขึ้นมาแสดงผล
     function fetchLeaderboard() {
       const callbackName = "cb_lb_" + Date.now();
       fetchJSONP(`${GAS_WEB_APP_URL}?roomId=${roomId}`, callbackName)
       .then(data => {
         leaderboardList.innerHTML = "";
         if (!data || data.length === 0) {
-          leaderboardList.innerHTML = `<li class="text-slate-500 text-center py-1">ยังไม่มีบันทึกคะแนนในห้องนี้</li>`;
+          leaderboardList.innerHTML = `<li class="text-slate-500 text-center py-1">ยังไม่มีบันทึกคะแนนในฐานข้อมูล</li>`;
           return;
         }
         data.forEach((entry, idx) => {
@@ -456,7 +368,7 @@
           leaderboardList.appendChild(li);
         });
         statusDiv.className = "text-xs text-emerald-400 font-bold mt-1 h-4";
-        statusDiv.innerText = "📊 สรุปอันดับคะแนนเรียบร้อย!";
+        statusDiv.innerText = "📊 อัปเดตตารางอันดับคะแนนรวมสำเร็จ!";
       });
     }
 
@@ -477,7 +389,7 @@
       height: 480
     });
     camera.start().then(() => { 
-      statusDiv.innerText = "✨ ระบบซิงค์ห้องแบบ JSONP ปลอดภัยจาก CORS พร้อมทำงาน!";
+      statusDiv.innerText = "✨ ระบบ AI มือ และ คลังเก็บข้อมูล Google Sheet พร้อมใช้งาน!";
     });
   </script>
 </body>
