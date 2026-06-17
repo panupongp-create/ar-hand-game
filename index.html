@@ -73,7 +73,7 @@
           <input type="text" id="name-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-center text-sm font-bold focus:outline-none focus:border-teal-400 text-teal-300 placeholder-slate-700 transition-all" placeholder="พิมพ์ชื่อเล่น..." maxlength="12">
         </div>
 
-        <button id="start-btn" onclick="hostPressStart()" class="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-extrabold text-sm px-6 py-2.5 rounded-xl transition-all disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed">
+        <button id="start-btn" class="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-400 hover:to-cyan-400 text-slate-950 font-extrabold text-sm px-6 py-2.5 rounded-xl transition-all disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed">
           กำลังเตรียมห้อง...
         </button>
 
@@ -83,7 +83,7 @@
 
   <script>
     // 🛑 อย่าลืมใส่ URL เว็บแอปที่เพิ่งทำการ Deploy เวอร์ชันล่าสุดของคุณตรงนี้ครับ!
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx4MFtifRBynuqYvy3fE13wXNcWw5OkODZVIWb8_Cqa_Zap5uPFD76RAif_u6yNsb9A/exec";
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzT7q8qz1h6ld9SE2Bas6RFw0oXFLe1PR7HHx_0Pb3WdqbrgoxyfmLIiVMywGjsn4Ft/exec";
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
@@ -119,17 +119,34 @@
     let hoverStartTime = null;
     const HOVER_DURATION = 1500; 
 
-    // ฟังก์ชันช่วยดึงข้อมูลแบบ JSONP เพื่อทะลุ CORS บล็อก
+    // ฟังก์ชันช่วยดึงข้อมูลแบบ JSONP เพื่อทะลุ CORS บล็อก + เพิ่มระบบ Timeout ปลอดภัย
     function fetchJSONP(url, callbackName) {
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         const sep = url.includes('?') ? '&' : '?';
         script.src = `${url}${sep}callback=${callbackName}`;
         
-        window[callbackName] = (data) => {
-          resolve(data);
-          document.body.removeChild(script);
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error("JSONP Request Timeout"));
+        }, 5000);
+
+        function cleanup() {
+          clearTimeout(timeout);
+          if (document.body.contains(script)) {
+            document.body.removeChild(script);
+          }
           delete window[callbackName];
+        }
+        
+        window[callbackName] = (data) => {
+          cleanup();
+          resolve(data);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("JSONP Script Load Failed"));
         };
         
         document.body.appendChild(script);
@@ -143,69 +160,87 @@
 
     function setupRoom() {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('room')) {
+
+      if (urlParams.has('room') && urlParams.get('host') !== '1') {
+        // ===== Guest Mode =====
         roomId = urlParams.get('room');
         isHost = false;
+
         document.getElementById('role-badge').innerText = "บทบาท: ผู้เข้าร่วม (Guest)";
         startBtn.innerText = "⏳ รอเจ้าของห้องกดเริ่มเกม...";
         startBtn.disabled = true;
-        
-        checkRoomInterval = setInterval(checkRoomStateFromServer, 2000);
+
+        checkRoomInterval = setInterval(checkRoomStateFromServer, 1000);
       } else {
-        roomId = Math.floor(100000 + Math.random() * 900000).toString();
+        // ===== Host Mode =====
+        roomId = urlParams.get('room') || Math.floor(100000 + Math.random() * 900000).toString();
         isHost = true;
+
         document.getElementById('role-badge').innerText = "บทบาท: เจ้าของห้อง (Host)";
         startBtn.innerText = "🚀 เริ่มเกมสำหรับทุกคน";
         startBtn.disabled = false;
-        
-        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?room=' + roomId;
-        window.history.pushState({path:newUrl}, '', newUrl);
+        startBtn.onclick = hostPressStart;
 
-        // ใช้ no-cors ในการยิงข้อมูลขาไป เพื่อไม่ให้ติดปัญหาบล็อกสิทธิ์คำขอสร้างห้อง
+        const hostUrl = window.location.origin + window.location.pathname + '?room=' + roomId + '&host=1';
+        window.history.replaceState({}, '', hostUrl);
+
+        // ยิงแจ้งฝั่ง Server ว่าสร้างห้องใหม่แล้ว
         fetch(`${GAS_WEB_APP_URL}?action=createRoom&roomId=${roomId}`, { method: "GET", mode: "no-cors" });
       }
-      document.getElementById('room-id-display').innerText = roomId;
 
+      document.getElementById('room-id-display').innerText = roomId;
+      document.getElementById("qrcode").innerHTML = "";
+
+      // สร้าง URL ให้ Guest สแกนเข้ามา (ไม่มี &host=1)
+      const guestUrl = window.location.origin + window.location.pathname + '?room=' + roomId;
       new QRCode(document.getElementById("qrcode"), {
-        text: window.location.href,
+        text: guestUrl,
         width: 100,
         height: 100,
-        colorDark : "#0f172a",
-        colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.M
+        colorDark: "#0f172a",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
       });
     }
-    window.addEventListener('DOMContentLoaded', setupRoom);
 
     function hostPressStart() {
       if (!isHost) return;
+
       const inputName = nameInput.value.trim();
-      if (inputName !== "") playerName = inputName;
+      if (inputName !== "") {
+        playerName = inputName;
+      }
 
-      startBtn.innerText = "⏳ กำลังส่งคำสั่งสตาร์ท...";
       startBtn.disabled = true;
+      startBtn.innerText = "⏳ กำลังเริ่มเกม...";
 
-      // ส่งคำสั่งแบบ no-cors มั่นใจว่าเข้าชีทแน่นอนและไม่ค้างหน้าบ้าน
-      fetch(`${GAS_WEB_APP_URL}?action=startGame&roomId=${roomId}`, { method: "GET", mode: "no-cors" });
-      
-      // บังคับเครื่อง Host เริ่มเล่นทันทีในอีก 500ms ถัดมา
-      setTimeout(() => {
-        localStartGameAction();
-      }, 500);
+      // ยิงแจ้งเซิร์ฟเวอร์เปลี่ยนสถานะเป็นเปิดศึกสำหรับทุกคน
+      fetch(`${GAS_WEB_APP_URL}?action=startGame&roomId=${roomId}`, { method: "GET", mode: "no-cors" })
+        .then(() => {
+          localStartGameAction();
+        })
+        .catch(err => {
+          console.error(err);
+          startBtn.disabled = false;
+          startBtn.innerText = "🚀 เริ่มเกมสำหรับทุกคน";
+          alert("ไม่สามารถเชื่อมต่อเพื่อเริ่มเกมได้ กรุณาลองใหม่อีกครั้ง");
+        });
     }
 
     function checkRoomStateFromServer() {
-      // ดึงสถานะกลับมาอ่านแบบทะลุ CORS ด้วยเทคนิค JSONP
       const callbackName = "cb_" + Date.now();
-      fetchJSONP(`${GAS_WEB_APP_URL}?roomId=${roomId}&checkState=true`, callbackName)
-      .then(data => {
-        if (data && data.status === "playing") {
-          clearInterval(checkRoomInterval); 
-          const inputName = nameInput.value.trim();
-          if (inputName !== "") playerName = inputName;
-          localStartGameAction(); 
-        }
-      });
+      fetchJSONP(`${GAS_WEB_APP_URL}?action=checkState&roomId=${roomId}`, callbackName)
+        .then(data => {
+          if (data && data.status === "playing") {
+            clearInterval(checkRoomInterval); 
+            const inputName = nameInput.value.trim();
+            if (inputName !== "") playerName = inputName;
+            localStartGameAction(); 
+          }
+        })
+        .catch(err => {
+          console.log("Room check waiting...", err);
+        });
     }
 
     function localStartGameAction() {
@@ -407,7 +442,20 @@
 
       startBtn.disabled = false;
       startBtn.innerText = "เปิดศึกรอบถัดไป 🔄";
-      startBtn.setAttribute("onclick", "location.reload()"); 
+      
+      // ผูก Event รีเซ็ตห้องเมื่อกดเล่นใหม่
+      startBtn.onclick = () => {
+        if (isHost) {
+          startBtn.disabled = true;
+          startBtn.innerText = "⏳ กำลังรีเซ็ตห้อง...";
+          fetch(`${GAS_WEB_APP_URL}?action=resetRoom&roomId=${roomId}`, { method: "GET", mode: "no-cors" })
+            .finally(() => {
+              location.reload();
+            });
+        } else {
+          location.reload();
+        }
+      };
 
       overlayScreen.classList.remove('opacity-0', 'pointer-events-none');
 
@@ -415,7 +463,6 @@
         isSaving = true;
         statusDiv.innerText = "📡 กำลังส่งคะแนนไปยัง Leaderboard ประจำห้อง...";
         
-        // ส่งแต้มจบเกมแบบปลอดภัยไม่ค้างหน้าจอ
         fetch(`${GAS_WEB_APP_URL}?action=submitScore&roomId=${roomId}&player=${encodeURIComponent(playerName)}&score=${score}`, { method: "GET", mode: "no-cors" });
         
         statusDiv.innerText = "🔄 กำลังอัปเดตตารางคะแนนรวมของห้อง...";
@@ -442,8 +489,15 @@
         });
         statusDiv.className = "text-xs text-emerald-400 font-bold mt-1 h-4";
         statusDiv.innerText = "📊 สรุปอันดับคะแนนเรียบร้อย!";
+      })
+      .catch(err => {
+        console.error("Leaderboard update error:", err);
+        leaderboardList.innerHTML = `<li class="text-rose-500 text-center py-1">โหลดตารางคะแนนไม่สำเร็จ</li>`;
       });
     }
+
+    // เริ่มทำงานเมื่อเปิดเว็บ
+    window.addEventListener('DOMContentLoaded', setupRoom);
 
     const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
     hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
