@@ -89,7 +89,7 @@
   </main>
 
   <script>
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx4MFtifRBynuqYvy3fE13wXNcWw5OkODZVIWb8_Cqa_Zap5uPFD76RAif_u6yNsb9A/exec";
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6tatazvgvGuEzI45HsLXC4VP-PHiNAcyPxoMm-uRpIpDuWe4xvstOD9EAARoNwjSA/exec";
 
     const video = document.getElementById('webcam');
     const canvas = document.getElementById('gameCanvas');
@@ -178,7 +178,8 @@
         startBtn.innerText = "⏳ รอเจ้าของห้องกดเริ่มเกม...";
         startBtn.disabled = true;
 
-        checkRoomInterval = setInterval(checkRoomStateFromServer, 1000);
+        checkRoomStateFromServer();
+        checkRoomInterval = setInterval(checkRoomStateFromServer, 800);
         guestUrl = window.location.origin + window.location.pathname + '?room=' + roomId;
       } else {
         // ===== Host Mode =====
@@ -264,7 +265,9 @@
             }
             const inputName = nameInput.value.trim();
             if (inputName !== "") playerName = inputName;
-            localStartGameAction(); 
+            startBtn.innerText = "⏳ กำลังเริ่มเกม...";
+            startBtn.disabled = true;
+            localStartGameAction();
           }
         })
         .catch(err => {
@@ -273,6 +276,8 @@
     }
 
     function localStartGameAction() {
+      if (gameActive) return;
+
       score = 0;
       timeLeft = 60;
       isSaving = false;
